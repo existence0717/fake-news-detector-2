@@ -60,7 +60,18 @@ st.markdown("""
         margin-top: 2px;
     }
 
-    /* METRIC CARDS - UNIFORM COLOR */
+    /* SEARCH BAR (Floating) */
+    .stTextInput input {
+        border-radius: 12px;
+        border: 1px solid #cbd5e1;
+        padding: 12px 20px;
+        background-color: white;
+        color: #334155;
+        font-size: 14px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+
+    /* METRIC CARDS */
     .metric-card {
         background-color: white;
         border-radius: 12px;
@@ -71,7 +82,7 @@ st.markdown("""
         height: 100%;
     }
     .metric-header {
-        color: #7c3aed; /* Uniform Purple Text */
+        color: #7c3aed;
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
@@ -137,11 +148,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. METRIC CARDS (Uniform Colors as requested)
+# 2. SEARCH BAR (RESTORED)
+search_query = st.text_input("", placeholder="🔍 Search Intelligence Database...", label_visibility="collapsed")
+
+if not df.empty and search_query:
+    df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
+
+# 3. METRIC CARDS
 st.markdown("###")
 scanned = len(df)
-fakes = len(df[df['verdict'].str.contains("FAKE|DEEPFAKE|SCAM", case=False, na=False)])
-high_vel = len(df[(df['virality_vd'] > 50) | (df['views'] > 50000)])
+fakes = len(df[df['verdict'].str.contains("FAKE|DEEPFAKE|SCAM", case=False, na=False)]) if not df.empty else 0
+high_vel = len(df[(df['virality_vd'] > 50) | (df['views'] > 50000)]) if not df.empty else 0
 max_reach = df['views'].max() if not df.empty else 0
 reach_label = f"{max_reach/1000000:.1f}M" if max_reach > 1000000 else f"{max_reach:,.0f}"
 
@@ -160,7 +177,7 @@ with c2: card("Confirmed Fakes", f"{fakes:03d}")
 with c3: card("High Velocity Events", f"{high_vel:03d}")
 with c4: card("Max Viral Reach", reach_label)
 
-# 3. CHARTS
+# 4. CHARTS
 st.markdown("###")
 col_left, col_right = st.columns(2)
 
@@ -173,12 +190,13 @@ with col_left:
         
         bar_chart = alt.Chart(verdict_counts).mark_bar(cornerRadius=5).encode(
             x=alt.X('Verdict', axis=alt.Axis(labelAngle=0, title=None, labelFont='Outfit')),
-            y=alt.Y('Count', title='Volume'), # Legend added back
+            y=alt.Y('Count', title='Volume'),
             color=alt.Color('Verdict', legend=None, scale=alt.Scale(scheme='purpleblue')),
             tooltip=['Verdict', 'Count']
         ).properties(height=280).configure_axis(grid=False).configure_view(strokeWidth=0)
-        
         st.altair_chart(bar_chart, use_container_width=True)
+    else:
+        st.info("Waiting for data stream...")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_right:
@@ -196,22 +214,27 @@ with col_right:
                 x1=1, x2=1, y1=1, y2=0
             )
         ).encode(
-            x=alt.X('index', title='Recent Scans (Time)'), # Axis Label Added
-            y=alt.Y('virality_vd', title='Virality Score (R/T)'), # Axis Label Added
+            x=alt.X('index', title='Recent Scans (Time)'),
+            y=alt.Y('virality_vd', title='Virality Score (R/T)'),
             tooltip=['title', 'virality_vd']
         ).properties(height=280).configure_view(strokeWidth=0)
         st.altair_chart(curve, use_container_width=True)
+    else:
+        st.info("Waiting for data stream...")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. LIVE THREAT STREAM (With Panic Score)
+# 5. LIVE THREAT STREAM (With Panic Score Fix)
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("**🚨 Live Threat Stream**")
+
 if not df.empty:
     display_df = df[['timestamp', 'platform', 'panic_score', 'verdict', 'title', 'url']].copy()
     
-    # Format Panic Score to Percentage
-    display_df['panic_score'] = (display_df['panic_score'] * 100).astype(int)
-
+    # Handle Panic Score safely
+    if 'panic_score' in display_df.columns:
+        display_df['panic_score'] = display_df['panic_score'].fillna(0)
+        display_df['panic_score'] = (display_df['panic_score'] * 100).astype(int)
+    
     st.dataframe(
         display_df,
         use_container_width=True,
@@ -229,6 +252,9 @@ if not df.empty:
         },
         hide_index=True
     )
+else:
+    st.warning("⚠️ No threats detected yet. System is scanning...")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="footer">CMS System v2.5 | Enterprise Edition</div>', unsafe_allow_html=True)
