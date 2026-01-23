@@ -172,16 +172,20 @@ reach_label = f"{max_reach/1000000:.1f}M" if max_reach > 1000000 else f"{max_rea
 
 c1, c2, c3, c4 = st.columns(4)
 
-def card(title, value):
+def card(title, value, is_danger=False):
+    # If is_danger is True, use RED text. Otherwise, use standard Dark Blue.
+    text_color = "#dc2626" if is_danger else "#0f172a"
+    
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-header">{title}</div>
-        <div class="metric-value">{value}</div>
+        <div class="metric-value" style="color: {text_color}">{value}</div>
     </div>
     """, unsafe_allow_html=True)
 
+# Update the calls below to use the new "danger" flag
 with c1: card("Threats Scanned", scanned)
-with c2: card("Confirmed Fakes", f"{fakes:03d}")
+with c2: card("Confirmed Fakes", f"{fakes:03d}", is_danger=True)  # <--- RED ALERT
 with c3: card("High Velocity Events", f"{high_vel:03d}")
 with c4: card("Max Viral Reach", reach_label)
 
