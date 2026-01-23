@@ -18,10 +18,9 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
 
     .stApp {
-        background-color: #f8fafc; /* Professional Light Grey */
+        background-color: #f8fafc;
         font-family: 'Outfit', sans-serif;
     }
-
     #MainMenu, footer, header {visibility: hidden;}
     .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
 
@@ -39,7 +38,7 @@ st.markdown("""
     .logo-box {
         width: 48px;
         height: 48px;
-        background: #0f172a; /* COMMAND CENTER BLACK */
+        background: #0f172a;
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -61,7 +60,7 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* SEARCH BAR (Floating) */
+    /* SEARCH BAR */
     .stTextInput input {
         border-radius: 12px;
         border: 1px solid #cbd5e1;
@@ -96,8 +95,7 @@ st.markdown("""
         color: #0f172a;
         margin: 0;
     }
-
-    /* CONTENT CONTAINERS */
+    
     .content-card {
         background-color: white;
         padding: 20px;
@@ -107,14 +105,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     div[data-testid="stDataFrame"] {border: none;}
-    
-    /* FOOTER */
-    .footer {
-        text-align: center;
-        font-size: 12px;
-        color: #94a3b8;
-        margin-top: 30px;
-    }
+    .footer {text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -128,10 +119,8 @@ if time.time() - st.session_state['last_update'] > 3:
 def load_data():
     try:
         conn = sqlite3.connect('fake_news.db')
-        # Load exactly the columns your listener.py creates
         df = pd.read_sql_query("SELECT * FROM content_log ORDER BY id DESC", conn)
         conn.close()
-        # Fallback if columns are missing (Safety)
         if 'virality_vd' not in df.columns: df['virality_vd'] = 0.0
         return df
     except: return pd.DataFrame()
@@ -140,7 +129,7 @@ df = load_data()
 
 # --- 🖥️ UI LAYOUT ---
 
-# 1. HEADER (Official Name)
+# 1. HEADER
 st.markdown("""
 <div class="header-container">
     <div class="logo-box">🛡️</div>
@@ -151,20 +140,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. SEARCH BAR (The Logic)
-# Your listener.py creates titles like "Huge Scandal...", so we search for words inside those titles.
-search_query = st.text_input("", placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'leak', 'deepfake')...", label_visibility="collapsed")
+# 2. SEARCH BAR (Now Filters the WHOLE Page)
+search_query = st.text_input("", placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'deepfake', 'leak')...", label_visibility="collapsed")
 
-# Filter Logic: Search in 'title', 'tags', and 'verdict'
-filtered_df = df.copy()
+# GLOBAL FILTER LOGIC
 if not df.empty and search_query:
-    # This magic line searches EVERY text column for your keyword
-    filtered_df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
+    df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
 
-# 3. METRIC CARDS
+# 3. METRIC CARDS (These now update based on search!)
 st.markdown("###")
 scanned = len(df)
-# Matches 'verdict' from your listener.py (DEEPFAKE, SCAM, etc.)
 fakes = len(df[df['verdict'].str.contains("FAKE|DEEPFAKE|SCAM", case=False, na=False)]) if not df.empty else 0
 high_vel = len(df[(df['virality_vd'] > 50) | (df['views'] > 50000)]) if not df.empty else 0
 max_reach = df['views'].max() if not df.empty else 0
@@ -173,9 +158,7 @@ reach_label = f"{max_reach/1000000:.1f}M" if max_reach > 1000000 else f"{max_rea
 c1, c2, c3, c4 = st.columns(4)
 
 def card(title, value, is_danger=False):
-    # If is_danger is True, use RED text. Otherwise, use standard Dark Blue.
     text_color = "#dc2626" if is_danger else "#0f172a"
-    
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-header">{title}</div>
@@ -183,9 +166,8 @@ def card(title, value, is_danger=False):
     </div>
     """, unsafe_allow_html=True)
 
-# Update the calls below to use the new "danger" flag
 with c1: card("Threats Scanned", scanned)
-with c2: card("Confirmed Fakes", f"{fakes:03d}", is_danger=True)  # <--- RED ALERT
+with c2: card("Confirmed Fakes", f"{fakes:03d}", is_danger=True)
 with c3: card("High Velocity Events", f"{high_vel:03d}")
 with c4: card("Max Viral Reach", reach_label)
 
@@ -208,7 +190,7 @@ with col_left:
         ).properties(height=280).configure_axis(grid=False).configure_view(strokeWidth=0)
         st.altair_chart(bar_chart, use_container_width=True)
     else:
-        st.info("Waiting for data stream...")
+        st.info("No data matches your search criteria.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_right:
@@ -226,23 +208,23 @@ with col_right:
                 x1=1, x2=1, y1=1, y2=0
             )
         ).encode(
-            x=alt.X('index', title='Recent Scans (Time)'),
-            y=alt.Y('virality_vd', title='Virality Score (R/T)'),
+            x=alt.X('index', title='Recent Scans'),
+            y=alt.Y('virality_vd', title='Virality'),
             tooltip=['title', 'virality_vd']
         ).properties(height=280).configure_view(strokeWidth=0)
         st.altair_chart(curve, use_container_width=True)
     else:
-        st.info("Waiting for data stream...")
+        st.info("No data matches your search criteria.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. LIVE THREAT STREAM
+# 5. LIVE THREAT STREAM (Added Views Back!)
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("**🚨 Live Threat Stream**")
 
-if not filtered_df.empty:
-    display_df = filtered_df[['timestamp', 'platform', 'panic_score', 'verdict', 'title', 'url']].copy()
+if not df.empty:
+    # Added 'views' to this list!
+    display_df = df[['timestamp', 'platform', 'panic_score', 'verdict', 'views', 'title', 'url']].copy()
     
-    # Handle Panic Score (Coming from 'risk' in your listener.py)
     if 'panic_score' in display_df.columns:
         display_df['panic_score'] = display_df['panic_score'].fillna(0)
         display_df['panic_score'] = (display_df['panic_score'] * 100).astype(int)
@@ -259,15 +241,14 @@ if not filtered_df.empty:
                 min_value=0, 
                 max_value=100
             ),
+            "views": st.column_config.NumberColumn("Reach", format="%d"),
             "verdict": st.column_config.TextColumn("Verdict"),
             "title": st.column_config.TextColumn("Headline", width="large")
         },
         hide_index=True
     )
-elif search_query:
-    st.warning(f"No intelligence found matching: '{search_query}'")
 else:
-    st.info("System initializing... waiting for data stream.")
+    st.warning(f"No intelligence found matching: '{search_query}'")
 
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<div class="footer">IICCC System v1.0 | Restricted Access</div>', unsafe_allow_html=True)
