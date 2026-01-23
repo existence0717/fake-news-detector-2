@@ -6,7 +6,7 @@ import altair as alt
 
 # --- ⚙️ PAGE CONFIG ---
 st.set_page_config(
-    page_title="CMS Dashboard", 
+    page_title="IICCC Dashboard", 
     page_icon="🛡️", 
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -39,7 +39,7 @@ st.markdown("""
     .logo-box {
         width: 48px;
         height: 48px;
-        background: #7c3aed; /* UNIFORM BRAND PURPLE */
+        background: #0f172a; /* COMMAND CENTER BLACK */
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -49,7 +49,7 @@ st.markdown("""
         margin-right: 18px;
     }
     .main-title {
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 700;
         color: #0f172a;
         margin: 0;
@@ -58,6 +58,7 @@ st.markdown("""
         font-size: 13px;
         color: #64748b;
         margin-top: 2px;
+        font-weight: 500;
     }
 
     /* SEARCH BAR (Floating) */
@@ -82,7 +83,7 @@ st.markdown("""
         height: 100%;
     }
     .metric-header {
-        color: #7c3aed;
+        color: #64748b;
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
@@ -92,7 +93,7 @@ st.markdown("""
     .metric-value {
         font-size: 34px;
         font-weight: 700;
-        color: #1e293b;
+        color: #0f172a;
         margin: 0;
     }
 
@@ -127,8 +128,10 @@ if time.time() - st.session_state['last_update'] > 3:
 def load_data():
     try:
         conn = sqlite3.connect('fake_news.db')
+        # Load exactly the columns your listener.py creates
         df = pd.read_sql_query("SELECT * FROM content_log ORDER BY id DESC", conn)
         conn.close()
+        # Fallback if columns are missing (Safety)
         if 'virality_vd' not in df.columns: df['virality_vd'] = 0.0
         return df
     except: return pd.DataFrame()
@@ -137,26 +140,31 @@ df = load_data()
 
 # --- 🖥️ UI LAYOUT ---
 
-# 1. HEADER
+# 1. HEADER (Official Name)
 st.markdown("""
 <div class="header-container">
     <div class="logo-box">🛡️</div>
     <div>
-        <h1 class="main-title">Centre for Misinformation Surveillance</h1>
-        <div class="sub-title">System Status: 🟢 Online | Connected to Edge Database (SQLite)</div>
+        <h1 class="main-title">Information Integrity Command and Control Centre</h1>
+        <div class="sub-title">System Status: 🟢 OPERATIONAL | Live Intelligence Stream</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# 2. SEARCH BAR (RESTORED)
-search_query = st.text_input("", placeholder="🔍 Search Intelligence Database...", label_visibility="collapsed")
+# 2. SEARCH BAR (The Logic)
+# Your listener.py creates titles like "Huge Scandal...", so we search for words inside those titles.
+search_query = st.text_input("", placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'leak', 'deepfake')...", label_visibility="collapsed")
 
+# Filter Logic: Search in 'title', 'tags', and 'verdict'
+filtered_df = df.copy()
 if not df.empty and search_query:
-    df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
+    # This magic line searches EVERY text column for your keyword
+    filtered_df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
 
 # 3. METRIC CARDS
 st.markdown("###")
 scanned = len(df)
+# Matches 'verdict' from your listener.py (DEEPFAKE, SCAM, etc.)
 fakes = len(df[df['verdict'].str.contains("FAKE|DEEPFAKE|SCAM", case=False, na=False)]) if not df.empty else 0
 high_vel = len(df[(df['virality_vd'] > 50) | (df['views'] > 50000)]) if not df.empty else 0
 max_reach = df['views'].max() if not df.empty else 0
@@ -223,14 +231,14 @@ with col_right:
         st.info("Waiting for data stream...")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. LIVE THREAT STREAM (With Panic Score Fix)
+# 5. LIVE THREAT STREAM
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("**🚨 Live Threat Stream**")
 
-if not df.empty:
-    display_df = df[['timestamp', 'platform', 'panic_score', 'verdict', 'title', 'url']].copy()
+if not filtered_df.empty:
+    display_df = filtered_df[['timestamp', 'platform', 'panic_score', 'verdict', 'title', 'url']].copy()
     
-    # Handle Panic Score safely
+    # Handle Panic Score (Coming from 'risk' in your listener.py)
     if 'panic_score' in display_df.columns:
         display_df['panic_score'] = display_df['panic_score'].fillna(0)
         display_df['panic_score'] = (display_df['panic_score'] * 100).astype(int)
@@ -252,9 +260,10 @@ if not df.empty:
         },
         hide_index=True
     )
+elif search_query:
+    st.warning(f"No intelligence found matching: '{search_query}'")
 else:
-    st.warning("⚠️ No threats detected yet. System is scanning...")
+    st.info("System initializing... waiting for data stream.")
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="footer">CMS System v2.5 | Enterprise Edition</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">IICCC System v1.0 | Restricted Access</div>', unsafe_allow_html=True)
