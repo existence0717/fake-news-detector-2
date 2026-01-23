@@ -12,98 +12,43 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 🧹 CSS: UNIFORM PROFESSIONAL LOOK ---
+# --- 🧹 CSS: PROFESSIONAL UI ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
-
-    .stApp {
-        background-color: #f8fafc;
-        font-family: 'Outfit', sans-serif;
-    }
+    .stApp { background-color: #f8fafc; font-family: 'Outfit', sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
     .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-
-    /* HEADER & LOGO */
+    
     .header-container {
-        display: flex;
-        align-items: center;
-        background-color: white;
-        padding: 20px 30px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 25px;
-        border: 1px solid #e2e8f0;
+        display: flex; align-items: center; background-color: white;
+        padding: 20px 30px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 25px; border: 1px solid #e2e8f0;
     }
     .logo-box {
-        width: 48px;
-        height: 48px;
-        background: #0f172a;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        color: white;
-        margin-right: 18px;
+        width: 48px; height: 48px; background: #0f172a; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px; color: white; margin-right: 18px;
     }
-    .main-title {
-        font-size: 24px;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0;
-    }
-    .sub-title {
-        font-size: 13px;
-        color: #64748b;
-        margin-top: 2px;
-        font-weight: 500;
-    }
-
-    /* SEARCH BAR */
-    .stTextInput input {
-        border-radius: 12px;
-        border: 1px solid #cbd5e1;
-        padding: 12px 20px;
-        background-color: white;
-        color: #334155;
-        font-size: 14px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-    }
-
-    /* METRIC CARDS */
+    .main-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
+    .sub-title { font-size: 13px; color: #64748b; margin-top: 2px; font-weight: 500; }
+    
     .metric-card {
-        background-color: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #e2e8f0;
-        text-align: left;
-        height: 100%;
+        background-color: white; border-radius: 12px; padding: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        text-align: left; height: 100%;
     }
     .metric-header {
-        color: #64748b;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.5px; margin-bottom: 8px;
     }
-    .metric-value {
-        font-size: 34px;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0;
-    }
+    .metric-value { font-size: 34px; font-weight: 700; color: #0f172a; margin: 0; }
     
     .content-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+        background-color: white; padding: 20px; border-radius: 12px;
+        border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;
     }
+    .stTextInput input { border-radius: 12px; padding: 12px 20px; }
     div[data-testid="stDataFrame"] {border: none;}
     .footer {text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px;}
 </style>
@@ -140,14 +85,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. SEARCH BAR (Now Filters the WHOLE Page)
-search_query = st.text_input("", placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'deepfake', 'leak')...", label_visibility="collapsed")
+# 2. SEARCH BAR & FILTER LOGIC
+search_query = st.text_input("", placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'deepfake')...", label_visibility="collapsed")
 
-# GLOBAL FILTER LOGIC
 if not df.empty and search_query:
-    df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
+    # Robust Filtering: Searches Title, Verdict, AND Tags
+    mask = df['title'].str.contains(search_query, case=False, na=False) | \
+           df['verdict'].str.contains(search_query, case=False, na=False) | \
+           df['tags'].str.contains(search_query, case=False, na=False)
+    df = df[mask] # Apply filter to MAIN dataframe so all charts update!
 
-# 3. METRIC CARDS (These now update based on search!)
+# 3. METRIC CARDS
 st.markdown("###")
 scanned = len(df)
 fakes = len(df[df['verdict'].str.contains("FAKE|DEEPFAKE|SCAM", case=False, na=False)]) if not df.empty else 0
@@ -181,7 +129,6 @@ with col_left:
     if not df.empty:
         verdict_counts = df['verdict'].value_counts().reset_index()
         verdict_counts.columns = ['Verdict', 'Count']
-        
         bar_chart = alt.Chart(verdict_counts).mark_bar(cornerRadius=5).encode(
             x=alt.X('Verdict', axis=alt.Axis(labelAngle=0, title=None, labelFont='Outfit')),
             y=alt.Y('Count', title='Volume'),
@@ -189,8 +136,7 @@ with col_left:
             tooltip=['Verdict', 'Count']
         ).properties(height=280).configure_axis(grid=False).configure_view(strokeWidth=0)
         st.altair_chart(bar_chart, use_container_width=True)
-    else:
-        st.info("No data matches your search criteria.")
+    else: st.info("No data matches your search criteria.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_right:
@@ -199,55 +145,38 @@ with col_right:
     if not df.empty:
         line_data = df.head(50).reset_index()
         curve = alt.Chart(line_data).mark_area(
-            interpolate='monotone',
-            line={'color':'#7c3aed', 'strokeWidth': 3},
-            color=alt.Gradient(
-                gradient='linear',
-                stops=[alt.GradientStop(color='rgba(124, 58, 237, 0.3)', offset=0),
-                       alt.GradientStop(color='rgba(124, 58, 237, 0.0)', offset=1)],
-                x1=1, x2=1, y1=1, y2=0
-            )
+            interpolate='monotone', line={'color':'#7c3aed', 'strokeWidth': 3},
+            color=alt.Gradient(gradient='linear', stops=[alt.GradientStop(color='rgba(124, 58, 237, 0.3)', offset=0), alt.GradientStop(color='rgba(124, 58, 237, 0.0)', offset=1)], x1=1, x2=1, y1=1, y2=0)
         ).encode(
             x=alt.X('index', title='Recent Scans'),
-            y=alt.Y('virality_vd', title='Virality'),
-            tooltip=['title', 'virality_vd']
+            y=alt.Y('virality_vd', title='Virality'), tooltip=['title', 'virality_vd']
         ).properties(height=280).configure_view(strokeWidth=0)
         st.altair_chart(curve, use_container_width=True)
-    else:
-        st.info("No data matches your search criteria.")
+    else: st.info("No data matches your search criteria.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. LIVE THREAT STREAM (Added Views Back!)
+# 5. LIVE THREAT STREAM
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("**🚨 Live Threat Stream**")
 
 if not df.empty:
-    # Added 'views' to this list!
     display_df = df[['timestamp', 'platform', 'panic_score', 'verdict', 'views', 'title', 'url']].copy()
-    
     if 'panic_score' in display_df.columns:
         display_df['panic_score'] = display_df['panic_score'].fillna(0)
         display_df['panic_score'] = (display_df['panic_score'] * 100).astype(int)
     
     st.dataframe(
-        display_df,
-        use_container_width=True,
+        display_df, use_container_width=True,
         column_config={
             "timestamp": st.column_config.DatetimeColumn("Time", format="HH:mm"),
             "url": st.column_config.LinkColumn("Source"),
-            "panic_score": st.column_config.ProgressColumn(
-                "Panic %", 
-                format="%d%%", 
-                min_value=0, 
-                max_value=100
-            ),
+            "panic_score": st.column_config.ProgressColumn("Panic %", format="%d%%", min_value=0, max_value=100),
             "views": st.column_config.NumberColumn("Reach", format="%d"),
             "verdict": st.column_config.TextColumn("Verdict"),
             "title": st.column_config.TextColumn("Headline", width="large")
-        },
-        hide_index=True
+        }, hide_index=True
     )
-else:
+elif search_query:
     st.warning(f"No intelligence found matching: '{search_query}'")
 
 st.markdown('</div>', unsafe_allow_html=True)
