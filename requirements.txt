@@ -1,0 +1,8 @@
+streamlit
+pandas
+altair
+groq
+google-api-python-client
+feedparser
+requests
+python-dotenv
