@@ -2,6 +2,7 @@
 .env
 keys.env
 *.db
+!fake_news.db
 __pycache__/
 *.pyc
 .DS_Store
