@@ -119,17 +119,26 @@ def get_risk_level(score):
 df = load_data()
 total_records = len(df)
 
-# --- SIDEBAR FILTERS ---
-with st.sidebar:
-    st.markdown("### 🎛️ Control Panel")
-    
-    # Refresh button
+# --- UI LAYOUT ---
+
+# 1. HEADER
+st.markdown("""
+<div class="header-container">
+    <div class="logo-box">🛡️</div>
+    <div>
+        <h1 class="main-title">Information Integrity Command and Control Centre</h1>
+        <div class="sub-title">System Status: 🟢 OPERATIONAL | Live Intelligence Stream</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# 2. CONTROL PANEL (always in main area - use this if sidebar is collapsed)
+with st.expander("🎛️ Control Panel — Filters, Export & Refresh", expanded=False):
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.rerun()
     
     st.markdown("---")
     
-    # Export button
     if not df.empty:
         csv = df.to_csv(index=False)
         st.download_button(
@@ -143,10 +152,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔍 Filters")
     
-    # Time filter
     hours_back = st.slider("Show last N hours", 1, 168, 24, help="Filter threats by time")
     
-    # Verdict filter
     if not df.empty:
         all_verdicts = sorted(df['verdict'].unique().tolist())
         selected_verdicts = st.multiselect(
@@ -158,14 +165,11 @@ with st.sidebar:
     else:
         selected_verdicts = []
     
-    # Risk threshold
     min_risk = st.slider(
-        "Minimum Risk Score (%)", 
-        0, 100, 0,
+        "Minimum Risk Score (%)", 0, 100, 0,
         help="Show only threats above this risk level"
     )
     
-    # Platform filter
     if not df.empty:
         all_platforms = sorted(df['platform'].unique().tolist())
         selected_platforms = st.multiselect(
@@ -178,20 +182,15 @@ with st.sidebar:
         selected_platforms = []
     
     st.markdown("---")
-    
-    # Statistics
     if not df.empty:
         st.markdown("### 📊 Quick Stats")
         avg_risk = df['panic_score'].mean() * 100
         st.metric("Avg Risk Score", f"{avg_risk:.1f}%")
-        
         top_platform = df['platform'].value_counts().index[0]
         st.metric("Top Platform", top_platform)
-        
         critical_count = len(df[df['panic_score'] >= 0.8])
         st.metric("Critical Threats", critical_count)
     
-    st.markdown("---")
     st.caption(f"Total records: {total_records}")
     st.caption("IICCC v2.0")
 
@@ -218,20 +217,7 @@ if not filtered_df.empty:
     if selected_platforms:
         filtered_df = filtered_df[filtered_df['platform'].isin(selected_platforms)]
 
-# --- 🖥️ UI LAYOUT ---
-
-# 1. HEADER
-st.markdown("""
-<div class="header-container">
-    <div class="logo-box">🛡️</div>
-    <div>
-        <h1 class="main-title">Information Integrity Command and Control Centre</h1>
-        <div class="sub-title">System Status: 🟢 OPERATIONAL | Live Intelligence Stream</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# 2. SEARCH BAR
+# 3. SEARCH BAR
 search_query = st.text_input(
     "", 
     placeholder="🔍 Search Intelligence Database (e.g., 'scam', 'deepfake')...", 
