@@ -16,48 +16,90 @@ st.set_page_config(
 # --- 🧹 CSS: PROFESSIONAL UI WITH COLOR CODING ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
-    .stApp { background-color: #f8fafc; font-family: 'Outfit', sans-serif; }
-    #MainMenu, footer, header {visibility: hidden;}
-    .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
     
+    /* Base Theme */
+    .stApp { 
+        font-family: 'Outfit', sans-serif; 
+    }
+    
+    /* Header Section */
     .header-container {
-        display: flex; align-items: center; background-color: white;
-        padding: 20px 30px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 25px; border: 1px solid #e2e8f0;
+        display: flex; align-items: center; 
+        background-color: var(--secondary-background-color);
+        padding: 24px 32px; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+        margin-bottom: 30px; 
+        border: 1px solid rgba(128, 128, 128, 0.2);
     }
     .logo-box {
-        width: 48px; height: 48px; background: #0f172a; border-radius: 10px;
+        width: 56px; height: 56px; 
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        border-radius: 14px;
         display: flex; align-items: center; justify-content: center;
-        font-size: 24px; color: white; margin-right: 18px;
+        font-size: 28px; margin-right: 24px; color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
-    .main-title { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; }
-    .sub-title { font-size: 13px; color: #64748b; margin-top: 2px; font-weight: 500; }
+    .main-title { 
+        font-size: 28px; font-weight: 700; margin: 0; 
+        letter-spacing: -0.5px;
+        color: var(--text-color);
+    }
+    .sub-title { 
+        font-size: 14px; margin-top: 4px; font-weight: 500; 
+        letter-spacing: 0.5px; color: var(--faded-text-color);
+    }
     
+    /* Metric Cards */
     .metric-card {
-        background-color: white; border-radius: 12px; padding: 20px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        background-color: var(--secondary-background-color);
+        border-radius: 16px; padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+        border: 1px solid rgba(128, 128, 128, 0.2);
         text-align: left; height: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
     .metric-header {
-        color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.5px; margin-bottom: 8px;
+        color: var(--faded-text-color); font-size: 13px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 1px; margin-bottom: 12px;
     }
-    .metric-value { font-size: 34px; font-weight: 700; color: #0f172a; margin: 0; }
+    .metric-value { 
+        font-size: 38px; font-weight: 700; margin: 0; 
+        line-height: 1.1; color: var(--text-color);
+    }
     
+    /* Content Cards */
     .content-card {
-        background-color: white; padding: 20px; border-radius: 12px;
-        border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;
+        background-color: var(--secondary-background-color); 
+        padding: 24px; border-radius: 16px;
+        border: 1px solid rgba(128, 128, 128, 0.2); 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+        margin-bottom: 24px;
     }
-    .stTextInput input { border-radius: 12px; padding: 12px 20px; }
-    div[data-testid="stDataFrame"] {border: none;}
-    .footer {text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px;}
+    .content-card h4 {
+        color: var(--text-color); font-weight: 600; font-size: 18px;
+        margin-bottom: 20px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        padding-bottom: 12px;
+    }
     
-    /* Risk Level Badges */
-    .risk-critical { background: #dc2626; color: white; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-    .risk-high { background: #f97316; color: white; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-    .risk-medium { background: #eab308; color: white; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-    .risk-low { background: #22c55e; color: white; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+    /* Streamlit Overrides */
+    div[data-testid="stDataFrame"] {border: none;}
+    .stTextInput input { 
+        border-radius: 12px; padding: 14px 24px; 
+    }
+    
+    /* Badges */
+    .risk-critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .risk-high { background: rgba(249, 115, 22, 0.15); color: #f97316; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid rgba(249, 115, 22, 0.3); }
+    .risk-medium { background: rgba(234, 179, 8, 0.15); color: #eab308; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .risk-low { background: rgba(34, 197, 94, 0.15); color: #22c55e; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid rgba(34, 197, 94, 0.3); }
+    
+    .footer {text-align: center; font-size: 13px; color: var(--faded-text-color); margin-top: 40px; border-top: 1px solid rgba(128,128,128,0.2); padding-top: 20px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,7 +149,7 @@ def load_data():
 # Helper function for risk level
 def get_risk_level(score):
     if score >= 0.8:
-        return "CRITICAL", "#dc2626"
+        return "CRITICAL", "#ef4444"
     elif score >= 0.6:
         return "HIGH", "#f97316"
     elif score >= 0.4:
@@ -242,7 +284,7 @@ critical = len(filtered_df[filtered_df['panic_score'] >= 0.8]) if not filtered_d
 c1, c2, c3, c4 = st.columns(4)
 
 def card(title, value, is_danger=False):
-    text_color = "#dc2626" if is_danger else "#0f172a"
+    text_color = "#ef4444" if is_danger else "var(--text-color)"
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-header">{title}</div>
@@ -250,27 +292,28 @@ def card(title, value, is_danger=False):
     </div>
     """, unsafe_allow_html=True)
 
-with c1: card("Threats Scanned", scanned)
-with c2: card("Confirmed Fakes", f"{fakes:03d}", is_danger=True)
-with c3: card("High Velocity", f"{high_vel:03d}")
-with c4: card("Critical Alerts", f"{critical:03d}", is_danger=True)
+with c1: card("Threats Scanned", f"{scanned:,}")
+with c2: card("Confirmed Fakes", f"{fakes:02d}", is_danger=True)
+with c3: card("High Velocity", f"{high_vel:02d}")
+with c4: card("Critical Alerts", f"{critical:02d}", is_danger=True)
 
 # 4. CHARTS
 st.markdown("###")
 col_left, col_mid, col_right = st.columns(3)
 
+# Streamlit handles light/dark themes natively for Altair via theme="streamlit"
+
 with col_left:
-    st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("**Threat Classification**")
+    st.markdown('<div class="content-card"><h4>🛡️ Threat Classification</h4>', unsafe_allow_html=True)
     if not filtered_df.empty:
         verdict_counts = filtered_df['verdict'].value_counts().reset_index()
         verdict_counts.columns = ['Verdict', 'Count']
         
-        pie_chart = alt.Chart(verdict_counts).mark_arc(innerRadius=50).encode(
+        pie_chart = alt.Chart(verdict_counts).mark_arc(innerRadius=60, padAngle=0.03).encode(
             theta=alt.Theta('Count:Q'),
-            color=alt.Color('Verdict:N', scale=alt.Scale(scheme='category20')),
+            color=alt.Color('Verdict:N', scale=alt.Scale(scheme='set2')),
             tooltip=['Verdict', 'Count']
-        ).properties(height=250)
+        ).properties(height=280)
         
         st.altair_chart(pie_chart, use_container_width=True)
     else: 
@@ -278,8 +321,7 @@ with col_left:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_mid:
-    st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("**Risk Distribution**")
+    st.markdown('<div class="content-card"><h4>⚠️ Risk Distribution</h4>', unsafe_allow_html=True)
     if not filtered_df.empty:
         # Create risk level categories
         risk_levels = filtered_df['panic_score'].apply(
@@ -287,15 +329,15 @@ with col_mid:
         ).value_counts().reset_index()
         risk_levels.columns = ['Level', 'Count']
         
-        bar_chart = alt.Chart(risk_levels).mark_bar(cornerRadius=5).encode(
-            x=alt.X('Level', sort=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], axis=alt.Axis(title=None)),
+        bar_chart = alt.Chart(risk_levels).mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, size=35).encode(
+            x=alt.X('Level', sort=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], axis=alt.Axis(title=None, labelAngle=0)),
             y=alt.Y('Count', title='Volume'),
             color=alt.Color('Level', scale=alt.Scale(
                 domain=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
-                range=['#dc2626', '#f97316', '#eab308', '#22c55e']
+                range=['#ef4444', '#f97316', '#eab308', '#22c55e']
             ), legend=None),
             tooltip=['Level', 'Count']
-        ).properties(height=250)
+        ).properties(height=280)
         
         st.altair_chart(bar_chart, use_container_width=True)
     else: 
@@ -303,21 +345,28 @@ with col_mid:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_right:
-    st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("**Viral Velocity Trend**")
+    st.markdown('<div class="content-card"><h4>📈 Viral Velocity Trend</h4>', unsafe_allow_html=True)
     if not filtered_df.empty:
         line_data = filtered_df.head(50).reset_index()
-        curve = alt.Chart(line_data).mark_line(
-            point=True,
-            color='#7c3aed',
-            strokeWidth=3
-        ).encode(
-            x=alt.X('index', title='Recent Scans'),
-            y=alt.Y('virality_vd', title='Virality'), 
-            tooltip=['title', 'virality_vd']
-        ).properties(height=250)
         
-        st.altair_chart(curve, use_container_width=True)
+        # Area + Line Chart
+        base = alt.Chart(line_data).encode(x=alt.X('index', title='Recent Scans', axis=alt.Axis(labels=False)))
+        
+        area = base.mark_area(
+            color=alt.Gradient(
+                gradient='linear',
+                stops=[alt.GradientStop(color='rgba(99, 102, 241, 0.4)', offset=0), alt.GradientStop(color='rgba(99, 102, 241, 0.0)', offset=1)],
+                x1=1, x2=1, y1=1, y2=0
+            )
+        ).encode(y='virality_vd')
+        
+        line = base.mark_line(point=alt.OverlayMarkDef(filled=False, fill='white', size=40), color='#6366f1', strokeWidth=3).encode(
+            y=alt.Y('virality_vd', title='Virality (v_d)'), 
+            tooltip=['title', 'virality_vd']
+        )
+        
+        chart = (area + line).properties(height=280)
+        st.altair_chart(chart, use_container_width=True)
     else: 
         st.info("No data matches your filters.")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -355,6 +404,8 @@ if not filtered_df.empty:
         "title": st.column_config.TextColumn("Headline", width="large"),
         "url": st.column_config.LinkColumn("Source")
     }
+    if 'language' in display_df.columns:
+        col_config["language"] = st.column_config.TextColumn("Language", width="small")
     if 'ai_explanation' in display_df.columns:
         col_config["ai_explanation"] = st.column_config.TextColumn("AI Reason", width="medium", help="Why the AI classified it this way")
     

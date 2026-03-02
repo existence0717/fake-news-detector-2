@@ -6,3 +6,5 @@ keys.env
 __pycache__/
 *.pyc
 .DS_Store
+google-factcheck-key.json
+*.json

@@ -12,6 +12,7 @@ load_dotenv("keys.env")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GOOGLE_FACTCHECK_API_KEY = os.getenv("GOOGLE_FACTCHECK_API_KEY")
 
 # --- AI ---
 MODEL_NAME = "llama-3.1-8b-instant"
@@ -44,7 +45,43 @@ RISK_KEYWORDS = [
     "scam", "urgent", "virus", "riot", "protest", "deepfake", "AI generated",
     "leaked", "scandal", "exposed", "hack", "cyber", "war", "market crash",
 ]
+# --- HINDI RISK KEYWORDS ---
+HINDI_RISK_KEYWORDS = [
+    # Fake/Scam
+    "फर्जी",  # Fake
+    "नकली",  # Fake/counterfeit
+    "घोटाला",  # Scam
+    "धोखाधड़ी",  # Fraud
+    
+    # Violence/Danger
+    "धमाका",  # Blast/explosion
+    "विस्फोट",  # Explosion
+    "मौत",  # Death
+    "मृत्यु",  # Death (formal)
+    "हमला",  # Attack
+    "आतंकी",  # Terrorist
+    "आतंकवाद",  # Terrorism
+    
+    # Disaster
+    "आग",  # Fire
+    "बाढ़",  # Flood
+    "भूकंप",  # Earthquake
+    "दंगा",  # Riot
+    
+    # Urgent/Breaking
+    "तत्काल",  # Urgent
+    "जरूरी",  # Important/urgent
+    "ब्रेकिंग",  # Breaking (borrowed)
+    "अलर्ट",  # Alert (borrowed)
+    
+    # Political
+    "भ्रष्ट",  # Corrupt
+    "देशद्रोही",  # Traitor
+    "साजिश",  # Conspiracy
+]
 
+# Combined keywords for comprehensive detection
+ALL_RISK_KEYWORDS = RISK_KEYWORDS + HINDI_RISK_KEYWORDS
 # Keywords to check for HN/tech (broader)
 TECH_RISK_KEYWORDS = RISK_KEYWORDS + ["ai", "gpt", "crypto", "attack", "bug", "data", "leak"]
 
@@ -53,6 +90,12 @@ TECH_RISK_KEYWORDS = RISK_KEYWORDS + ["ai", "gpt", "crypto", "attack", "bug", "d
 SPIKE_VD_THRESHOLD = 5000
 # Total views above this = viral
 SPIKE_VIEWS_THRESHOLD = 100_000
+# SpikeTracker: baseline = avg items/hour over last N hours
+SPIKE_BASELINE_HOURS = 24
+# True spike = recent rate > (baseline * this multiplier)
+SPIKE_MULTIPLIER = 2.0
+# Min items required before baseline is considered meaningful
+SPIKE_MIN_BASELINE_ITEMS = 3
 # YouTube: process if views/hr > this OR total views > 50k
 YOUTUBE_VD_MIN = 100
 YOUTUBE_VIEWS_MIN = 50_000

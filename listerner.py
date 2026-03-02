@@ -11,8 +11,9 @@ from googleapiclient.discovery import build
 
 from utils import setup_logging
 from risk_scoring import RiskScorer
+from spike_tracker import SpikeTracker
 from config import (
-    NEWS_API_KEY, YOUTUBE_API_KEY, GROQ_API_KEY,
+    NEWS_API_KEY, YOUTUBE_API_KEY, GROQ_API_KEY, GOOGLE_FACTCHECK_API_KEY,
     MODEL_NAME, TRENDS_RSS_URL, RSS_FEEDS, RSS_VIEW_ESTIMATES,
     HN_TOP_STORIES, HN_ITEM_URL, NEWS_API_QUERIES,
     RISK_KEYWORDS, TECH_RISK_KEYWORDS,
@@ -20,6 +21,28 @@ from config import (
     NEWS_API_ARTICLE_LIMIT, RSS_ENTRIES_PER_FEED, YOUTUBE_SEARCH_LIMIT,
     SCAN_INTERVAL_SECONDS,
 )
+from langdetect import detect, LangDetectException
+
+def detect_language(text):
+    """Detect language of text, default to 'en' if detection fails"""
+    try:
+        lang = detect(text)
+        # Map common Indian language codes
+        lang_map = {
+            'hi': 'Hindi',
+            'ta': 'Tamil',
+            'te': 'Telugu',
+            'bn': 'Bengali',
+            'mr': 'Marathi',
+            'gu': 'Gujarati',
+            'kn': 'Kannada',
+            'ml': 'Malayalam',
+            'pa': 'Punjabi',
+            'en': 'English',
+        }
+        return lang_map.get(lang, lang)
+    except LangDetectException:
+        return 'English'  # Default to English if detection fails
 
 # Validate API keys
 print("Loading API keys...")
@@ -38,9 +61,83 @@ class SocialListener:
         self.logger.info(f" INITIALIZING: Advanced Classification Engine ({MODEL_NAME})")
         self.client = Groq(api_key=GROQ_API_KEY)
         self.risk_scorer = RiskScorer()
+        self.spike_tracker = SpikeTracker()
         self.db_name = 'fake_news.db'
         self.init_db()
         self.youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+        self.init_factcheck_api()
+
+    def init_factcheck_api(self):
+        """Initialize Google Fact Check API."""
+        self.factcheck_api_key = GOOGLE_FACTCHECK_API_KEY
+            
+        # Fallback to YouTube API key (both are Google Cloud API keys)
+        if not self.factcheck_api_key and YOUTUBE_API_KEY:
+            self.factcheck_api_key = YOUTUBE_API_KEY
+            self.logger.info("Fact Check API: Using fallback Google Cloud API key")
+
+    def check_factcheck_api(self, text):
+        """Query Google Fact Check Tools API via HTTP and return a corroboration score."""
+        if not self.factcheck_api_key:
+            return None
+            
+        try:
+            import re, requests
+            
+            # Extract 2-3 clean keywords
+            clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
+            words = [w for w in clean_text.split() if len(w) > 3]
+            
+            if len(words) >= 2:
+                top_words = sorted(words, key=len, reverse=True)[:3]
+                query = " ".join([w for w in words if w in top_words])
+            elif words:
+                query = words[0]
+            else:
+                return None
+            
+            if not query or len(query) < 2:
+                 return None 
+                
+            url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+            params = {
+                "query": query,
+                "languageCode": "en-US",
+                "key": self.factcheck_api_key
+            }
+            
+            # Increased timeout to 15s because the Google API can sometimes be slow
+            response = requests.get(url, params=params, timeout=15)
+            
+            if response.status_code != 200:
+                # If 400 happens here, it's definitively an API key restrictions/permissions issue, not python client parsing
+                self.logger.warning(f"Fact Check API ({response.status_code}): {response.text[:200]}")
+                return None
+                
+            data = response.json()
+            claims = data.get('claims', [])
+            if not claims:
+                return None
+                
+            top_claim = claims[0]
+            claim_review = top_claim.get('claimReview', [])
+            if not claim_review:
+                return None
+
+            rating = claim_review[0].get('textualRating', '').lower()
+            self.logger.info(f"Fact Check Match: '{query}' -> Rating: {rating}")
+            
+            if 'false' in rating or 'pants on fire' in rating or 'fake' in rating:
+                return 0.0  # Debunked
+            elif 'true' in rating or 'correct' in rating:
+                return 1.0  # Verified True
+            elif 'unverified' in rating or 'half true' in rating or 'misleading' in rating:
+                return 0.5  # Mixed/Unverified
+                
+            return None
+        except Exception as e:
+            self.logger.error(f"Fact Check Search Error: {e}")
+            return None
 
     def init_db(self):
         conn = sqlite3.connect(self.db_name, timeout=10)
@@ -69,6 +166,18 @@ class SocialListener:
             conn.commit()
         except sqlite3.OperationalError:
             pass
+
+        try:
+            cursor.execute("ALTER TABLE content_log ADD COLUMN language TEXT DEFAULT 'en'")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE content_log ADD COLUMN corroboration_score REAL")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass            
         conn.close()
 
     def ask_ai(self, text):
@@ -118,22 +227,50 @@ class SocialListener:
             if cursor.fetchone(): 
                 return
 
+            # ⭐ FIXED: Added 'language' and 'corroboration_score' to the SQL query
             cursor.execute('''
-                INSERT INTO content_log (platform, title, url, image_url, views, tags, panic_score, verdict, virality_vd, ai_explanation)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (data['platform'], data['title'], data['url'], data.get('image_url'), data['views'], data['tags'], data['risk'], data['verdict'], data['vd'], data.get('ai_explanation', '')))
+                INSERT INTO content_log (platform, title, url, image_url, views, tags, panic_score, verdict, virality_vd, ai_explanation, language, corroboration_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data['platform'], 
+                data['title'], 
+                data['url'], 
+                data.get('image_url'), 
+                data['views'], 
+                data['tags'], 
+                data['risk'], 
+                data['verdict'], 
+                data['vd'], 
+                data.get('ai_explanation', ''),
+                data.get('language', 'English'),
+                data.get('corroboration_score')
+            ))
             conn.commit()
             self.logger.info(f"SAVED [{data['verdict']}]: {data['title'][:30]}...")
+            
+            # Check volume spike (platform getting more items than usual)
+            is_vol_spike, recent_rate, baseline = self.spike_tracker.is_spike(data['platform'])
+            if is_vol_spike:
+                self.logger.warning(f"VOLUME SPIKE: {data['platform']} | rate={recent_rate:.1f}/hr vs baseline={baseline:.1f}/hr")
+                self.spike_tracker.log_spike(data['platform'], data['title'], recent_rate, baseline)
         except Exception as e:
             self.logger.error(f"DB Error: {e}", exc_info=True)
         finally: 
             conn.close()
 
-    def is_spike(self, views, vd_score):
-        """Detect spike: high velocity or high total views (per PRD)"""
+    def is_virality_spike(self, views, vd_score):
+        """Detect virality spike: high velocity or high total views (per PRD)"""
         return vd_score >= SPIKE_VD_THRESHOLD or views >= SPIKE_VIEWS_THRESHOLD
 
     def process_item(self, platform, title, url, views, tag, image_url, vd_score):
+        detected_lang = detect_language(title)
+    
+        # Log if non-English detected
+        if detected_lang != 'English':
+            self.logger.info(f"🌐 Detected: {detected_lang} | {title[:50]}")
+            
+        corroboration_score = self.check_factcheck_api(title)
+            
         analysis = self.ask_ai(title)
         if "IRRELEVANT" in analysis.get("verdict", ""): 
             return
@@ -145,13 +282,14 @@ class SocialListener:
             views=views,
             virality_vd=vd_score,
             tags=tag,
-            ai_score=analysis['risk']
+            ai_score=analysis['risk'],
+            corroboration_score=corroboration_score
         )
         composite = risk_analysis['composite_risk']
         if composite > 0.7:
             self.logger.warning(f"HIGH RISK: {title[:50]} (Risk: {composite:.2f})")
-        if self.is_spike(views, vd_score):
-            self.logger.info(f"SPIKE DETECTED: vd={vd_score:.0f}, views={views} | {title[:40]}...")
+        if self.is_virality_spike(views, vd_score):
+            self.logger.info(f"VIRALITY SPIKE: vd={vd_score:.0f}, views={views} | {title[:40]}...")
     
         self.save_to_db({
             "platform": platform, 
@@ -163,7 +301,9 @@ class SocialListener:
             "risk": composite, 
             "verdict": analysis['verdict'],
             "vd": vd_score,
-            "ai_explanation": analysis.get("reason", "")
+            "ai_explanation": analysis.get("reason", ""),
+            "language": detected_lang,
+            "corroboration_score": corroboration_score
         })
         time.sleep(1)
     

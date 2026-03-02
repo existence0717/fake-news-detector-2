@@ -17,10 +17,10 @@ class RiskScorer:
         
         # Trusted domains for credibility
         self.trusted_domains = [
-            'gov.in', 'pib.gov.in',  # Government
-            'timesofindia.com', 'thehindu.com', 'indianexpress.com',  # Tier-1 media
-            'reuters.com', 'bbc.com', 'apnews.com',  # International
-            'news.ycombinator.com'  # Tech community
+            'gov.in', 'pib.gov.in',
+            'timesofindia.com', 'thehindu.com', 'indianexpress.com',
+            'reuters.com', 'bbc.com', 'apnews.com',
+            'news.ycombinator.com'
         ]
         
         # Spam indicators (low credibility)
@@ -30,14 +30,10 @@ class RiskScorer:
         ]
     
     def calculate_panic_score(self, title):
-        """
-        Analyze text for panic-inducing language
-        Returns: 0.0 to 1.0
-        """
+        """Analyze text for panic-inducing language. Returns: 0.0 to 1.0"""
         title_lower = title.lower()
         score = 0.0
         
-        # Check keywords by severity
         for severity, keywords in self.panic_keywords.items():
             for keyword in keywords:
                 if keyword in title_lower:
@@ -50,29 +46,20 @@ class RiskScorer:
                     elif severity == 'financial':
                         score += 0.35
         
-        # ALL CAPS detection (shouting)
         if title.isupper() and len(title) > 10:
             score += 0.2
         
-        # Excessive punctuation
         if title.count('!') >= 2 or title.count('?') >= 2:
             score += 0.15
         
-        # Sensational words
         sensational = ['shocking', 'unbelievable', 'incredible', 'must see', 'you wont believe']
         if any(word in title_lower for word in sensational):
             score += 0.1
         
-        return min(score, 1.0)  # Cap at 1.0
+        return min(score, 1.0)
     
     def calculate_credibility_score(self, platform, url):
-        """
-        Assess source credibility
-        Returns: 0.0 (untrustworthy) to 1.0 (very trustworthy)
-        Higher = MORE credible
-        """
-        
-        # Platform baseline
+        """Assess source credibility. Returns: 0.0 to 1.0 (higher = more credible)"""
         platform_credibility = {
             'Google News': 0.7,
             'Hacker News': 0.65,
@@ -87,12 +74,10 @@ class RiskScorer:
         
         url_lower = url.lower()
         
-        # Check for trusted domains
         for domain in self.trusted_domains:
             if domain in url_lower:
                 return min(base_cred + 0.3, 1.0)
         
-        # Check for spam indicators
         for indicator in self.spam_indicators:
             if indicator in url_lower:
                 return max(base_cred - 0.3, 0.0)
@@ -100,57 +85,52 @@ class RiskScorer:
         return base_cred
     
     def calculate_virality_score(self, views, virality_vd, hours_old=24):
-        """
-        Assess spread velocity
-        Returns: 0.0 to 1.0
-        Higher = spreading faster (more dangerous)
-        """
-        
-        # Views-based risk
-        if views > 1000000:  # 1M+
+        """Assess spread velocity. Returns: 0.0 to 1.0"""
+        if views > 1000000:
             views_risk = 0.9
-        elif views > 500000:  # 500K+
+        elif views > 500000:
             views_risk = 0.7
-        elif views > 100000:  # 100K+
+        elif views > 100000:
             views_risk = 0.5
-        elif views > 10000:   # 10K+
+        elif views > 10000:
             views_risk = 0.3
         else:
             views_risk = 0.1
         
-        # Velocity-based risk (views per hour)
-        if virality_vd > 10000:  # 10K views/hour
+        if virality_vd > 10000:
             velocity_risk = 0.95
-        elif virality_vd > 5000:  # 5K views/hour
+        elif virality_vd > 5000:
             velocity_risk = 0.8
-        elif virality_vd > 1000:  # 1K views/hour
+        elif virality_vd > 1000:
             velocity_risk = 0.6
-        elif virality_vd > 100:   # 100 views/hour
+        elif virality_vd > 100:
             velocity_risk = 0.4
         else:
             velocity_risk = 0.2
         
-        # Combine (velocity matters more than total views)
         virality_risk = (views_risk * 0.3 + velocity_risk * 0.7)
-        
         return min(virality_risk, 1.0)
     
     def calculate_keyword_score(self, title, tags):
-        """
-        Check for predefined high-risk keywords
-        Returns: 0.0 to 1.0
-        """
+        """Check for high-risk keywords (English + Hindi). Returns: 0.0 to 1.0"""
         combined_text = f"{title} {tags}".lower()
         
-        risk_keywords = [
-            'fake', 'scam', 'deepfake', 'leaked', 'hack',
-            'terrorist', 'bomb', 'explosion', 'death',
-            'urgent', 'breaking', 'alert'
-        ]
+        try:
+            from config import ALL_RISK_KEYWORDS
+            risk_keywords = ALL_RISK_KEYWORDS
+        except ImportError:
+            risk_keywords = [
+                'fake', 'scam', 'deepfake', 'leaked', 'hack',
+                'terrorist', 'bomb', 'explosion', 'death',
+                'urgent', 'breaking', 'alert'
+            ]
         
-        matches = sum(1 for keyword in risk_keywords if keyword in combined_text)
+        matches = 0
+        for keyword in risk_keywords:
+            keyword_lower = keyword.lower()
+            if keyword_lower in combined_text or keyword in combined_text:
+                matches += 1
         
-        # More matches = higher risk
         if matches >= 3:
             return 0.9
         elif matches == 2:
@@ -160,35 +140,32 @@ class RiskScorer:
         else:
             return 0.1
     
-    def calculate_composite_risk(self, title, platform, url, views, virality_vd, tags, ai_score):
+    def calculate_composite_risk(self, title, platform, url, views, virality_vd, tags, ai_score, corroboration_score=None):
+        """Combine all risk factors. Returns dict with composite_risk and individual scores.
+           corroboration_score: 1.0 (True), 0.5 (Unverified), 0.0 (False/Debunked).
         """
-        MASTER FUNCTION: Combine all risk factors
-        
-        Returns: {
-            'composite_risk': 0.0-1.0,
-            'panic_score': 0.0-1.0,
-            'credibility_score': 0.0-1.0,
-            'virality_score': 0.0-1.0,
-            'keyword_score': 0.0-1.0,
-            'ai_score': 0.0-1.0
-        }
-        """
-        
-        # Calculate individual scores
         panic = self.calculate_panic_score(title)
         credibility = self.calculate_credibility_score(platform, url)
         virality = self.calculate_virality_score(views, virality_vd)
         keywords = self.calculate_keyword_score(title, tags)
         
-        # Composite formula (weighted average)
-        # Note: credibility is inverted (low cred = high risk)
+        # Base composite score
         composite = (
             panic * 0.25 +
-            (1 - credibility) * 0.20 +  # Invert credibility
+            (1 - credibility) * 0.20 +
             virality * 0.20 +
             keywords * 0.15 +
             ai_score * 0.20
         )
+
+        # Apply Fact Check multiplier if available
+        if corroboration_score is not None:
+            if corroboration_score == 0.0:
+                # Highly likely to be fake/debunked
+                composite = min(composite * 1.5, 1.0)
+            elif corroboration_score == 1.0:
+                # Highly likely to be true
+                composite = composite * 0.5
         
         return {
             'composite_risk': min(composite, 1.0),
@@ -196,5 +173,6 @@ class RiskScorer:
             'credibility_score': credibility,
             'virality_score': virality,
             'keyword_score': keywords,
-            'ai_score': ai_score
+            'ai_score': ai_score,
+            'corroboration_score': corroboration_score
         }
