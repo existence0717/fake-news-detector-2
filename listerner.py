@@ -7,6 +7,8 @@ import json
 import feedparser
 from datetime import datetime, timezone
 from groq import Groq
+import os
+import random
 from googleapiclient.discovery import build
 
 from utils import setup_logging
@@ -21,6 +23,8 @@ from config import (
     NEWS_API_ARTICLE_LIMIT, RSS_ENTRIES_PER_FEED, YOUTUBE_SEARCH_LIMIT,
     SCAN_INTERVAL_SECONDS,
 )
+from dotenv import load_dotenv
+load_dotenv('keys.env')
 from langdetect import detect, LangDetectException
 
 def detect_language(text):
@@ -45,7 +49,7 @@ def detect_language(text):
         return 'English'  # Default to English if detection fails
 
 # Validate API keys
-print("Loading API keys...")
+print("ing API keys...")
 print(f"   News API Key: {'Found' if NEWS_API_KEY else 'Missing'}")
 print(f"   YouTube API Key: {'Found' if YOUTUBE_API_KEY else 'Missing'}")
 print(f"   Groq API Key: {'Found' if GROQ_API_KEY else 'Missing'}")
@@ -181,43 +185,94 @@ class SocialListener:
         conn.close()
 
     def ask_ai(self, text):
-        try:
-            system_prompt = """
-            Analyze the headline and classify it into ONE of these categories. 
-            Be specific. Do not just say "Clickbait" if it is actually a Scam or Political.
-
-            CATEGORIES & RULES:
-            1. DEEPFAKE: Mentions "leaked audio", "AI video", or impossible behavior by public figures.
-            2. SCAM: Mentions "free money", "crypto giveaway", "urgent investment", or "hack trick".
-            3. POLITICAL BIAS: Highly opinionated, attacking a party, or using charged words like "destroy", "traitor".
-            4. MISLEADING: Factually doubtful, missing context, or cherry-picked facts.
-            5. CLICKBAIT: Exaggerated ("You won't believe", "Shocking") but harmless.
-            6. SATIRE: clearly a joke or meme.
-            7. LIKELY REAL: Neutral news reporting (e.g., "Sensex down 200 points").
-
-            Output strictly valid JSON:
-            {"score": 0-100, "category": "CATEGORY_NAME", "reason": "short explanation"}
-            (Score 100 = Dangerous/Fake, Score 0 = Safe/Real)
-            """
-            
-            completion = self.client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt}, 
-                    {"role": "user", "content": f"Classify this: '{text}'"}
-                ],
-                model=MODEL_NAME, 
-                response_format={"type": "json_object"}, 
-                temperature=0.1
-            )
-            data = json.loads(completion.choices[0].message.content)
-            return {
-                "verdict": data.get("category", "UNVERIFIED").upper(),
-                "risk": data.get("score", 0) / 100,
-                "reason": data.get("reason", "No explanation")[:500]
+        
+        # List of providers to try
+        providers = [
+            {
+                'name': 'groq',
+                'client': self.client,
+                'model': MODEL_NAME
+            },
+            {
+                'name': 'hyperbolic',
+                'client': None,  # Will initialize on first use
+                'model': 'meta-llama/Llama-3.3-70B-Instruct'
+            },
+            {
+                'name': 'fireworks',
+                'client': None,
+                'model': 'accounts/fireworks/models/llama-v3p1-8b-instruct'
             }
-        except Exception as e:
-            self.logger.error(f"AI ERROR: {e}", exc_info=True)
-            return {"verdict": "ERROR", "risk": 0, "reason": str(e)[:200]}
+        ]
+        
+        # Shuffle to distribute load
+        random.shuffle(providers)
+        
+        system_prompt = """
+    Analyze the headline and classify it into ONE of these categories.
+    Be specific. Do not just say "Clickbait" if it is actually a Scam or Political.
+
+    CATEGORIES & RULES:
+    1. DEEPFAKE: Mentions "leaked audio", "AI video", or impossible behavior by public figures.
+    2. SCAM: Mentions "free money", "crypto giveaway", "urgent investment", or "hack trick".
+    3. POLITICAL BIAS: Highly opinionated, attacking a party, or using charged words like "destroy", "traitor".
+    4. MISLEADING: Factually doubtful, missing context, or cherry-picked facts.
+    5. CLICKBAIT: Exaggerated ("You won't believe", "Shocking") but harmless.
+    6. SATIRE: clearly a joke or meme.
+    7. LIKELY REAL: Neutral news reporting (e.g., "Sensex down 200 points").
+
+    Output strictly valid JSON:
+    {"score": 0-100, "category": "CATEGORY_NAME", "reason": "short explanation"}
+    (Score 100 = Dangerous/Fake, Score 0 = Safe/Real)
+    """
+        
+        for provider in providers:
+            try:
+                # Initialize client if needed
+                if provider['client'] is None:
+                    if provider['name'] == 'hyperbolic':
+                        from openai import OpenAI
+                        provider['client'] = OpenAI(
+                            api_key=os.getenv('HYPERBOLIC_API_KEY'),
+                            base_url="https://api.hyperbolic.xyz/v1"
+                        )
+                    elif provider['name'] == 'fireworks':
+                        from openai import OpenAI
+                        provider['client'] = OpenAI(
+                            api_key=os.getenv('FIREWORKS_API_KEY'),
+                            base_url="https://api.fireworks.ai/inference/v1"
+                        )
+                
+                completion = provider['client'].chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Classify this: '{text}'"}
+                    ],
+                    model=provider['model'],
+                    response_format={"type": "json_object"},
+                    temperature=0.1
+                )
+                
+                data = json.loads(completion.choices[0].message.content)
+                self.logger.info(f"✅ {provider['name'].upper()} success")
+                return {
+                    "verdict": data.get("category", "UNVERIFIED").upper(),
+                    "risk": data.get("score", 0) / 100,
+                    "reason": data.get("reason", "No explanation")[:500]
+                }
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                if 'rate' in error_msg or 'limit' in error_msg or '429' in error_msg:
+                    self.logger.warning(f"⚠️ {provider['name'].upper()} rate limit, trying next...")
+                    continue
+                else:
+                    self.logger.error(f"❌ {provider['name'].upper()} error: {e}")
+                    continue
+        
+        # All providers failed
+        self.logger.error("🚨 ALL AI PROVIDERS FAILED")
+        return {"verdict": "ERROR", "risk": 0, "reason": "AI unavailable"}
 
     def save_to_db(self, data):
         conn = sqlite3.connect(self.db_name, timeout=10)
