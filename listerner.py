@@ -192,17 +192,8 @@ class SocialListener:
                 'name': 'groq',
                 'client': self.client,
                 'model': MODEL_NAME
-            },
-            {
-                'name': 'hyperbolic',
-                'client': None,  # Will initialize on first use
-                'model': 'meta-llama/Llama-3.3-70B-Instruct'
-            },
-            {
-                'name': 'fireworks',
-                'client': None,
-                'model': 'accounts/fireworks/models/llama-v3p1-8b-instruct'
             }
+      
         ]
         
         # Shuffle to distribute load
@@ -227,22 +218,7 @@ class SocialListener:
     """
         
         for provider in providers:
-            try:
-                # Initialize client if needed
-                if provider['client'] is None:
-                    if provider['name'] == 'hyperbolic':
-                        from openai import OpenAI
-                        provider['client'] = OpenAI(
-                            api_key=os.getenv('HYPERBOLIC_API_KEY'),
-                            base_url="https://api.hyperbolic.xyz/v1"
-                        )
-                    elif provider['name'] == 'fireworks':
-                        from openai import OpenAI
-                        provider['client'] = OpenAI(
-                            api_key=os.getenv('FIREWORKS_API_KEY'),
-                            base_url="https://api.fireworks.ai/inference/v1"
-                        )
-                
+            try:                
                 completion = provider['client'].chat.completions.create(
                     messages=[
                         {"role": "system", "content": system_prompt},
